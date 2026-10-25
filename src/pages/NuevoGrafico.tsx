@@ -6,19 +6,26 @@ import api from "../api/client";
 import type { FiltroRequest } from "../types/grafico";
 import type { Columna, Archivo } from "../types/archivo";
 import type { GraficoCreadoRequest, GraficoGenerado } from "../types/grafico";
-import GraficoBarras from "../components/GraficoBarras";
+import GraficoPlotly from "../components/GraficoPlotly";
 import EditorFiltros from "../components/EditorFiltros";
+
+// la tarta solo tiene sentido si las porciones suman un total (recuento o suma),
+// y caja/histograma muestran cómo se reparten los valores, así que solo tienen
+// sentido con una operación de distribución. Esto tiene que ir a la par de
+// OPERACIONES_PERMITEN_TARTA/OPERACIONES_PERMITEN_DISTRIBUCION en graficos.py del backend
+const OPERACIONES_PERMITEN_TARTA = ["recuento", "suma"]
+const OPERACIONES_PERMITEN_DISTRIBUCION = ["media", "mediana", "desviacion_estandar", "varianza"]
 
 // 1 - Obtengo archivoId y informeId con useParams
 // 2 - Creo estados para guardar columnas (para desplegable de columnas), selecciones, errores, generación y resultado
 // 3 - Cargo las columnas del archivo desde la API cuando entro a la página
-// 4 - Decido si necesito columna Y (recuento no lo necesita, suma y media si)
+// 4 - Decido si necesito columna Y (recuento no lo necesita, el resto si)
 // 5 - Al enviar el formulario compruebo que se hayan seleccionado columnas válidas
 // 6 - Construyo datos con la configuración del gráfico y lo guardo en la variable datos
 // 7 - Envío datos al backend mediante POST para generar el gráfico
 // 8 - Guardo el resultado que devuelve el backend en resultado
 // 9 - Muestro los selectores de X y Y, operación y tipo de gráfico
-// 10 - Si hay resultado muestro los valores como barras proporcionales al valor máximo
+// 10 - Si hay resultado lo pinto con Plotly
 function NuevoGrafico(){
 
     // 1 y 2
@@ -61,7 +68,19 @@ function NuevoGrafico(){
     // 4
     const necesitaColumnaY = operacion !== "recuento"
 
-    
+    // si cambio de operación y el tipo de gráfico que tenía elegido ya no es compatible
+    // (por ejemplo tenía tarta y paso a media), vuelvo a barras para no dejar
+    // seleccionada una combinación que el backend me rechazaría
+    useEffect(() => {
+        if(tipoGrafico === "tarta" && !OPERACIONES_PERMITEN_TARTA.includes(operacion)) {
+            setTipoGrafico("barras")
+        }
+        if((tipoGrafico === "caja" || tipoGrafico === "histograma") && !OPERACIONES_PERMITEN_DISTRIBUCION.includes(operacion)) {
+            setTipoGrafico("barras")
+        }
+    },[operacion, tipoGrafico])
+
+
     async function manejarSubmit(e: React.FormEvent<HTMLFormElement>){
         e.preventDefault();
         setError(null)
@@ -128,6 +147,12 @@ function NuevoGrafico(){
                         <option value="recuento">Recuento</option>
                         <option value="suma">Suma</option>
                         <option value="media">Media</option>
+                        <option value="mediana">Mediana</option>
+                        <option value="minimo">Mínimo</option>
+                        <option value="maximo">Máximo</option>
+                        <option value="desviacion_estandar">Desviación estándar</option>
+                        <option value="varianza">Varianza</option>
+                        <option value="recuento_distintos">Recuento de valores distintos</option>
                     </select>
                 </label>
 
@@ -138,7 +163,11 @@ function NuevoGrafico(){
                         Columna eje Y:
                         <select value={columnaY} onChange={(e) => setColumnaY(e.target.value)}>
                             <option value="">Selecciona...</option>
-                            {columnas.filter((c) => c.tipo_dato === "numerico").map((columna) => (
+                            {/* recuento_distintos solo cuenta valores diferentes, así que vale
+                            cualquier columna, no solo las numéricas */}
+                            {columnas
+                                .filter((c) => operacion === "recuento_distintos" || c.tipo_dato === "numerico")
+                                .map((columna) => (
                                 <option key={columna.id} value={columna.id}>
                                     {columna.nombre_columna}
                                 </option>
@@ -154,7 +183,15 @@ function NuevoGrafico(){
                     <select value={tipoGrafico} onChange={(e) => setTipoGrafico(e.target.value)}>
                         <option value="barras">Barras</option>
                         <option value="lineas">Líneas</option>
-                        <option value="tarta">Tarta</option>
+                        {OPERACIONES_PERMITEN_TARTA.includes(operacion) && (
+                            <option value="tarta">Tarta</option>
+                        )}
+                        {OPERACIONES_PERMITEN_DISTRIBUCION.includes(operacion) && (
+                            <>
+                                <option value="caja">Caja</option>
+                                <option value="histograma">Histograma</option>
+                            </>
+                        )}
                     </select>
                 </label>
 
@@ -173,7 +210,7 @@ function NuevoGrafico(){
             {resultado && (
                 <div>
                     <h3>{resultado.nombre ?? "resultado"}</h3>
-                    <GraficoBarras etiquetas={resultado.etiquetas} valores={resultado.valores}/>
+                    <GraficoPlotly especificacion={resultado.especificacion}/>
                 </div>
             )}
         </div>

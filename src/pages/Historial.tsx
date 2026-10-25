@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import api from "../api/client";
-import GraficoBarras from "../components/GraficoBarras";
 import type { InformeResponse } from "../types/informes";
 
 
@@ -43,7 +42,7 @@ function Historial() {
         }
         cargarInfomes();
     },[]);
-    
+
 
     async function manejarBorrarInforme(informeId: number) {
         const confirmado = window.confirm("¿Seguro que quieres borrar este informe? Se borrarán también todos sus gráficos. El archivo original no se verá afectado")
@@ -70,6 +69,9 @@ function Historial() {
         <div>
             <h2>Historial de informes</h2>
 
+            {/* Antes aquí también pintaba los gráficos de cada informe, pero con varios
+            informes grandes la página se quedaba enorme, así que ahora esto es solo la
+            lista y cada informe tiene su propia página en DetalleInforme */}
             {informes.map((informe) => (
                 <div key={informe.id} style={{border: "1px solid #ccc", padding: "12px", marginBottom: "16px"}}>
                    {informeEditandoId === informe.id ? (
@@ -85,24 +87,16 @@ function Historial() {
                             <button onClick={() => empezarAEditar(informe)}>Renombrar</button>
                         </h3>
                     )}
-                    <Link to={`/archivos/${informe.archivo_id}/informes/${informe.id}/nuevo-grafico`}>
-                        Añadir más gráficos al informe
+                    <p>Creado: {new Date(informe.fecha_creacion).toLocaleString()}</p>
+                    <p>{informe.graficos.length} gráfico(s)</p>
+
+                    <Link to={`/informes/${informe.id}`}>
+                        Ver informe
                     </Link>
                     {" | "}
                     <button onClick={() => manejarBorrarInforme(informe.id)}>
                         Borrar informe
                     </button>
-                    <p>Creado: {new Date(informe.fecha_creacion).toLocaleString()}</p>
-
-                    {informe.graficos.length === 0 ? (<p>Este informe todavía no tiene gráficos</p>):
-                    (
-                        informe.graficos.map((grafico) =>(
-                            <div key={grafico.id} style={{marginTop: "8px"}}>
-                                <h4>{grafico.nombre ?? `Grafico #${grafico.id}`}</h4>
-                                <GraficoBarras etiquetas={grafico.etiquetas} valores={grafico.valores}/>
-                            </div>
-                        ))
-                    )}
                 </div>
             ))}
         </div>

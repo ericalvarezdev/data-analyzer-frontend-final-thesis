@@ -5,6 +5,7 @@ import Archivos from "./pages/Archivos";
 import PreviewArchivoPage from "./pages/PreviewArchivo";
 import NuevoGrafico from "./pages/NuevoGrafico";
 import Historial from "./pages/Historial";
+import DetalleInforme from "./pages/DetalleInforme";
 import Layout from "./components/Layout";
 import RutaPrivada from "./components/RutaPrivada";
 import NoEncontrado from "./pages/NoEncontrado";
@@ -31,6 +32,7 @@ function App() {
             <Route path="/archivos/:archivoId/preview" element={<PreviewArchivoPage/>} />
             <Route path="/archivos/:archivoId/informes/:informeId/nuevo-grafico" element={<NuevoGrafico/>} />
             <Route path="/historial" element={<Historial/>} />
+            <Route path="/informes/:informeId" element={<DetalleInforme/>} />
             <Route path="/auth/me" element={<Perfil/>} />
           </Route>
         </Route>

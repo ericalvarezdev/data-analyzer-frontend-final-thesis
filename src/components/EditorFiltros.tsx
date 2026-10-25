@@ -31,16 +31,24 @@ function EditorFiltros({columnas, filtros, onCambioFiltros} : EditorFiltroProps)
     const[valorMin, setValorMin] = useState("")
     const[valorMax, setValorMax] = useState("")
 
+    // con que se combina este filtro con el resultado de los filtros anteriores,
+    // en el primer filtro de la lista no se usa para nada pero lo mando igual
+    const[conector, setConector] = useState("AND")
+
     function manejarAñadirFiltro() {
         if(!columnaId) return;
 
         // array vacío que puede contener string o number
         let valores: (string|number)[] = []
 
-        if(tipoFiltro === "valor_exacto") {
+        if(tipoFiltro === "valor_exacto" || tipoFiltro === "diferente_de" || tipoFiltro === "contiene_texto") {
             if(!valorTexto) return;
             // solo es un valor
             valores = [valorTexto]
+        } else if(tipoFiltro === "mayor_que" || tipoFiltro === "menor_que") {
+            if(!valorTexto) return;
+            // igual que en rango, mayor que/menor que siempre comparan con un número
+            valores = [Number(valorTexto)]
         } else if(tipoFiltro === "rango") {
             if(!valorMin || !valorMax) return;
             // convierto los valores del rango a números antes de
@@ -52,12 +60,21 @@ function EditorFiltros({columnas, filtros, onCambioFiltros} : EditorFiltroProps)
             // map(trim) quita los espacios sobrantes de cada valor.
             // filter() elimina los valores que estén vacíos.
             valores = valorTexto.split(",").map((v) => v.trim()).filter((v) => v !== "")
+        } else if(tipoFiltro === "fecha_antes_de" || tipoFiltro === "fecha_despues_de") {
+            if(!valorTexto) return;
+            // el input type="date" ya devuelve el texto en formato aaaa-mm-dd, y eso
+            // ya lo entiende el pd.to_datetime del backend, así que lo mando tal cual
+            valores = [valorTexto]
+        } else if(tipoFiltro === "fecha_entre") {
+            if(!valorMin || !valorMax) return;
+            valores = [valorMin, valorMax]
         }
 
         const nuevoFiltro: FiltroRequest = {
             columna_id: Number(columnaId),
             tipo_filtro: tipoFiltro,
-            valores: valores
+            valores: valores,
+            conector: conector
         }
 
         // con ...filtros copio los filtros que ya estaban creados anteriormente
@@ -70,6 +87,7 @@ function EditorFiltros({columnas, filtros, onCambioFiltros} : EditorFiltroProps)
         setValorTexto("")
         setValorMax("")
         setValorMin("")
+        setConector("AND")
     }
 
     function manejarQuitarFiltro(indice: number) {
@@ -95,6 +113,8 @@ function EditorFiltros({columnas, filtros, onCambioFiltros} : EditorFiltroProps)
             {filtros.map((filtro, indice) => (
                 <div key={indice}>
                     <span>
+                        {/* el conector del primer filtro no se usa para nada, así que no lo muestro */}
+                        {indice > 0 && (filtro.conector === "OR" ? "O " : "Y ")}
                         {nombreColumna(filtro.columna_id)} - {filtro.tipo_filtro} - [{filtro.valores.join(", ")}]
                     </span>
                     <button type="button" onClick={() => manejarQuitarFiltro(indice)}>
@@ -116,19 +136,29 @@ function EditorFiltros({columnas, filtros, onCambioFiltros} : EditorFiltroProps)
 
                 <select value={tipoFiltro} onChange={(e) => setTipoFiltro(e.target.value)}>
                     <option value="valor_exacto">Valor exacto</option>
+                    <option value="diferente_de">Diferente de</option>
                     <option value="rango">Rango</option>
+                    <option value="mayor_que">Mayor que</option>
+                    <option value="menor_que">Menor que</option>
                     <option value="lista_valores">lista_valores</option>
+                    <option value="contiene_texto">Contiene texto</option>
+                    <option value="fecha_antes_de">Fecha antes de</option>
+                    <option value="fecha_despues_de">Fecha después de</option>
+                    <option value="fecha_entre">Fecha entre</option>
                 </select>
 
-                {/* Muestro inputs distintos según el tipo de filtro elegido */}
-                {tipoFiltro === "rango" ? (
+                {/* Muestro inputs distintos según el tipo de filtro elegido.
+                    fecha_entre es como el rango pero con dos fechas en vez de dos números */}
+                {tipoFiltro === "rango" || tipoFiltro === "fecha_entre" ? (
                     <>
                         <input
+                            type={tipoFiltro === "fecha_entre" ? "date" : undefined}
                             placeholder="Mínimo"
                             value={valorMin}
                             onChange={(e) => setValorMin(e.target.value)}
                         />
                         <input
+                            type={tipoFiltro === "fecha_entre" ? "date" : undefined}
                             placeholder="Máximo"
                             value={valorMax}
                             onChange={(e) => setValorMax(e.target.value)}
@@ -136,11 +166,18 @@ function EditorFiltros({columnas, filtros, onCambioFiltros} : EditorFiltroProps)
                     </>
                 ) : (
                     <input
+                        type={(tipoFiltro === "fecha_antes_de" || tipoFiltro === "fecha_despues_de") ? "date" : undefined}
                         placeholder={tipoFiltro === "lista_valores" ? "valor 1, valor 2, ..." : "Valor"}
                         value={valorTexto}
                         onChange={(e) => setValorTexto(e.target.value)}
                     />
                 )}
+
+                {/* con qué se junta este filtro con los filtros anteriores, en el primero da igual */}
+                <select value={conector} onChange={(e) => setConector(e.target.value)}>
+                    <option value="AND">Y</option>
+                    <option value="OR">O</option>
+                </select>
 
                 <button type="button" onClick={manejarAñadirFiltro}>
                     Añadir Filtro

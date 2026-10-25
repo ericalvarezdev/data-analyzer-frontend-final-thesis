@@ -6,6 +6,6 @@ export interface InformeResponse {
     usuario_id: number
     nombre: string|null
     fecha_creacion: string
-    graficos: GraficoGenerado[] // ya viene con etiquetas y valores calculados, por lo tanto no tengo que recalcular nada
+    graficos: GraficoGenerado[] // ya viene con la especificacion de plotly calculada, por lo tanto no tengo que recalcular nada
 
 }
