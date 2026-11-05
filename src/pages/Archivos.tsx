@@ -13,6 +13,10 @@ function Archivos() {
     const[subiendo, setSubiendo] = useState(false)
     const[errorSubida, setErrorSubida] = useState<string | null>(null)
 
+    // guardo el id del archivo que está generando el informe con IA en ese momento,
+    // así solo se desactiva y pone "Generando..." el botón de esa fila, no todos
+    const[generandoInformeIA, setGenerandoInformeIA] = useState<number | null>(null)
+
     const navigate = useNavigate();
 
 
@@ -104,6 +108,21 @@ function Archivos() {
         }
     }
 
+    // se encarga de crear un informe entero de golpe con gráficos propuestos por la
+    // IA. a diferencia de manejarCrearInforme, este informe ya viene con gráficos de
+    // verdad dentro, así que navego directamente a su detalle y no a nuevo-grafico
+    async function manejarCrearInformeConIA(archivoId: number) {
+        setGenerandoInformeIA(archivoId)
+        try {
+            const respuesta = await api.post(`/archivos/${archivoId}/informes/ia`,{})
+            navigate(`/informes/${respuesta.data.id}`)
+        } catch {
+            alert("No se pudo generar el informe con IA")
+        } finally {
+            setGenerandoInformeIA(null)
+        }
+    }
+
 
     // se encarga de borrar un archivo, el on delete cascade hará que se borren sus informes,
     // gráficos y columnas, por lo tanto mejor ponerlo con confirmación para evitar que el
@@ -172,6 +191,15 @@ function Archivos() {
                             disabled={!listoParaUsar}
                         >
                             Crear informe y gráfico
+                        </button>
+
+                        {" | "}
+
+                        <button
+                            onClick={() => manejarCrearInformeConIA(archivo.id)}
+                            disabled={!listoParaUsar || generandoInformeIA === archivo.id}
+                        >
+                            {generandoInformeIA === archivo.id ? "Generando..." : "Generar informe con IA"}
                         </button>
 
                         {" | "}
