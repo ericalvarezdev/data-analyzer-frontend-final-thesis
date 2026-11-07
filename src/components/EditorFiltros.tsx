@@ -34,6 +34,10 @@ function EditorFiltros({columnas, filtros, onCambioFiltros} : EditorFiltroProps)
     // con que se combina este filtro con el resultado de los filtros anteriores,
     // en el primer filtro de la lista no se usa para nada pero lo mando igual
     const[conector, setConector] = useState("AND")
+// los filtros de fecha solo tienen sentido en columnas de fechas, así que para esos
+    // filtros solo enseño esas columnas (el backend también lo comprueba)
+    const esFiltroDeFecha = tipoFiltro.startsWith("fecha_")
+    const columnasDisponibles = esFiltroDeFecha ? columnas.filter((c) => c.tipo_dato === "fecha") : columnas
 
     function manejarAñadirFiltro() {
         if(!columnaId) return;
@@ -127,7 +131,7 @@ function EditorFiltros({columnas, filtros, onCambioFiltros} : EditorFiltroProps)
             <div style={{marginTop:"8px"}}>
                 <select value={columnaId} onChange={(e) => setColumnaId(e.target.value)}>
                     <option value="">Columna...</option>
-                    {columnas.map((columna) => (
+                    {columnasDisponibles.map((columna) => (
                         <option key={columna.id} value={columna.id}>
                             {columna.nombre_columna}
                         </option>

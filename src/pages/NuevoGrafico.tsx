@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
 import api from "../api/client";
-
+import axios from "axios";
 import type { FiltroRequest } from "../types/grafico";
 import type { Columna, Archivo } from "../types/archivo";
 import type { GraficoCreadoRequest, GraficoGenerado } from "../types/grafico";
@@ -113,8 +113,14 @@ function NuevoGrafico(){
             const respuesta = await api.post<GraficoGenerado>(`/informes/${informeId}/graficos/`, datos)
             // 8
             setResultado(respuesta.data)
-        } catch {
-            setError("No se pudo generar el gráfico. Revisa la configuración elegida")
+         } catch (e) {
+            // si el backend explica qué está mal (por ejemplo un filtro de fecha en una columna
+            // que no es de fechas) enseño su mensaje, si no pongo el mensaje genérico
+            if(axios.isAxiosError(e) && typeof e.response?.data?.detail === "string") {
+                setError(e.response.data.detail)
+            } else {
+                setError("No se pudo generar el gráfico. Revisa la configuración elegida")
+            }
         } finally {
             setGenerando(false)
         }
