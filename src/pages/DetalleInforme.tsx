@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import api from "../api/client";
@@ -8,9 +7,10 @@ import GraficoPlotly from "../components/GraficoPlotly";
 
 // 1 - Leo el informeId de la URL
 // 2 - Cargo el informe (ya viene con los gráficos calculados) al entrar a la página
-// 3 - Pinto cada gráfico con GraficoPlotly
+// 3 - Pinto cada gráfico con GraficoPlotly, con sus filtros debajo del título
 // 4 - Botón para añadir más gráficos al informe, descargar el informe entero en PDF
 //     y generar (o regenerar) el resumen en lenguaje natural con IA
+// 5 - Botón para borrar cada gráfico, por si alguno se ha creado mal
 function DetalleInforme(){
 
     const {informeId} = useParams<{informeId: string}>()
@@ -72,6 +72,25 @@ function DetalleInforme(){
         }
     }
 
+    // borra un gráfico del informe. Pido confirmación porque no se puede deshacer, y si el
+    // backend lo borra bien lo quito también de los gráficos que ya tengo cargados, así no
+    // hace falta volver a pedir el informe entero
+    async function manejarBorrarGrafico(graficoId: number) {
+        const confirmado = window.confirm("¿Seguro que quieres borrar este gráfico?")
+
+        if(!confirmado) return;
+
+        try {
+            await api.delete(`/informes/${informeId}/graficos/${graficoId}`)
+            setInforme((actual) => actual && {
+                ...actual,
+                graficos: actual.graficos.filter((g) => g.id !== graficoId)
+            })
+        } catch {
+            alert("No se pudo borrar el gráfico")
+        }
+    }
+
     if(cargando) return <p>Cargando informe...</p>
     if(error) return <p style={{color:"red"}}>{error}</p>
     if(!informe) return null
@@ -105,6 +124,13 @@ function DetalleInforme(){
                 informe.graficos.map((grafico) => (
                     <div key={grafico.id} style={{marginTop: "8px"}}>
                         <h4>{grafico.nombre ?? `Grafico #${grafico.id}`}</h4>
+                        {/* los filtros que se aplicaron, con el mismo texto que sale en el PDF */}
+                        {grafico.filtros_texto && (
+                            <p style={{color:"#666", fontSize:"14px", margin:"4px 0"}}>
+                                Filtros: {grafico.filtros_texto}
+                            </p>
+                        )}
+                        <button onClick={() => manejarBorrarGrafico(grafico.id)}>Borrar gráfico</button>
                         <GraficoPlotly especificacion={grafico.especificacion}/>
                     </div>
                 ))

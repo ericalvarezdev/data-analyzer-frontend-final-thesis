@@ -4,6 +4,7 @@ export interface FiltroRequest {
     tipo_filtro: string
     valores: (string|number)[]
     conector: string // AND u OR, en el primer filtro de la lista no se usa para nada
+    negado: boolean // NOT, si es true me quedo con las filas que NO cumplen el filtro
 }
 
 // lo que mando al backend para que cree el gráfico
@@ -31,4 +32,5 @@ export interface GraficoGenerado {
     tipo_grafico: string
     operacion_agregacion: string
     especificacion: EspecificacionGrafico
+    filtros_texto: string // los filtros en texto, el mismo que sale en el PDF ("" si no tiene filtros)
 }

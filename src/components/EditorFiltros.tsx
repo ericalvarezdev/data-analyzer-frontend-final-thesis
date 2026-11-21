@@ -31,13 +31,40 @@ function EditorFiltros({columnas, filtros, onCambioFiltros} : EditorFiltroProps)
     const[valorMin, setValorMin] = useState("")
     const[valorMax, setValorMax] = useState("")
 
+    // para el filtro de trimestre: el año y el trimestre (1 = de enero a marzo, 2 = de abril
+    // a junio...). El trimestre empieza en 1 porque es un desplegable y así ya tiene un valor
+    const[valorAño, setValorAño] = useState("")
+    const[valorTrimestre, setValorTrimestre] = useState("1")
+
     // con que se combina este filtro con el resultado de los filtros anteriores,
     // en el primer filtro de la lista no se usa para nada pero lo mando igual
     const[conector, setConector] = useState("AND")
-// los filtros de fecha solo tienen sentido en columnas de fechas, así que para esos
+
+    // NOT: si está marcado me quedo con las filas que NO cumplen el filtro
+    const[negado, setNegado] = useState(false)
+
+    // los filtros de fecha solo tienen sentido en columnas de fechas, así que para esos
     // filtros solo enseño esas columnas (el backend también lo comprueba)
     const esFiltroDeFecha = tipoFiltro.startsWith("fecha_")
     const columnasDisponibles = esFiltroDeFecha ? columnas.filter((c) => c.tipo_dato === "fecha") : columnas
+
+    // al cambiar el tipo de filtro vacío los valores, porque cada tipo usa un input distinto
+    // y si no un "2025-03-01" de "Fecha antes de" se quedaría escondido en el input de "Mes"
+    // y el backend lo rechazaría. Y si la columna elegida no es de fechas y paso a un filtro
+    // de fecha, también la quito: ya no sale en el desplegable pero seguiría elegida
+    function manejarCambioTipoFiltro(nuevoTipo: string) {
+        setTipoFiltro(nuevoTipo)
+        setValorTexto("")
+        setValorMin("")
+        setValorMax("")
+        setValorAño("")
+        setValorTrimestre("1")
+
+        const columnaElegida = columnas.find((c) => String(c.id) === columnaId)
+        if(nuevoTipo.startsWith("fecha_") && columnaElegida && columnaElegida.tipo_dato !== "fecha") {
+            setColumnaId("")
+        }
+    }
 
     function manejarAñadirFiltro() {
         if(!columnaId) return;
@@ -64,21 +91,32 @@ function EditorFiltros({columnas, filtros, onCambioFiltros} : EditorFiltroProps)
             // map(trim) quita los espacios sobrantes de cada valor.
             // filter() elimina los valores que estén vacíos.
             valores = valorTexto.split(",").map((v) => v.trim()).filter((v) => v !== "")
-        } else if(tipoFiltro === "fecha_antes_de" || tipoFiltro === "fecha_despues_de") {
+        } else if(tipoFiltro === "fecha_antes_de" || tipoFiltro === "fecha_despues_de" || tipoFiltro === "fecha_dia") {
             if(!valorTexto) return;
-            // el input type="date" ya devuelve el texto en formato aaaa-mm-dd, y eso
-            // ya lo entiende el pd.to_datetime del backend, así que lo mando tal cual
+            // el input type="date" ya devuelve el texto en formato aaaa-mm-dd, que es
+            // justo el formato que espera el backend, así que lo mando tal cual
             valores = [valorTexto]
         } else if(tipoFiltro === "fecha_entre") {
             if(!valorMin || !valorMax) return;
             valores = [valorMin, valorMax]
+        } else if(tipoFiltro === "fecha_mes") {
+            if(!valorTexto) return;
+            // el input type="month" devuelve el mes en formato aaaa-mm
+            valores = [valorTexto]
+        } else if(tipoFiltro === "fecha_trimestre") {
+            if(!valorAño) return;
+            valores = [Number(valorAño), Number(valorTrimestre)]
+        } else if(tipoFiltro === "fecha_ultimos_dias") {
+            if(!valorTexto) return;
+            valores = [Number(valorTexto)]
         }
 
         const nuevoFiltro: FiltroRequest = {
             columna_id: Number(columnaId),
             tipo_filtro: tipoFiltro,
             valores: valores,
-            conector: conector
+            conector: conector,
+            negado: negado
         }
 
         // con ...filtros copio los filtros que ya estaban creados anteriormente
@@ -91,7 +129,10 @@ function EditorFiltros({columnas, filtros, onCambioFiltros} : EditorFiltroProps)
         setValorTexto("")
         setValorMax("")
         setValorMin("")
+        setValorAño("")
+        setValorTrimestre("1")
         setConector("AND")
+        setNegado(false)
     }
 
     function manejarQuitarFiltro(indice: number) {
@@ -108,6 +149,24 @@ function EditorFiltros({columnas, filtros, onCambioFiltros} : EditorFiltroProps)
         return columnas.find((c) => c.id === id)?.nombre_columna ?? `Columna ${id}`;
     }
 
+    // tipo del input cuando el filtro solo tiene un valor, así el navegador ya enseña un
+    // calendario (date), un selector de mes (month) o solo deja escribir números (number)
+    function tipoInputValor(): string | undefined {
+        if(tipoFiltro === "fecha_antes_de" || tipoFiltro === "fecha_despues_de" || tipoFiltro === "fecha_dia") return "date"
+        if(tipoFiltro === "fecha_mes") return "month"
+        if(tipoFiltro === "fecha_ultimos_dias") return "number"
+        return undefined
+    }
+
+    function placeholderValor(): string {
+        if(tipoFiltro === "lista_valores") return "valor 1, valor 2, ..."
+        // en Firefox y Safari de ordenador no hay selector de mes y sale un input de texto
+        // normal, así que pongo el formato que hay que escribir
+        if(tipoFiltro === "fecha_mes") return "aaaa-mm"
+        if(tipoFiltro === "fecha_ultimos_dias") return "Número de días"
+        return "Valor"
+    }
+
     return (
         <div style={{border:"1px dashed #999", padding:"8px", marginTop:"8px"}}>
             <h4>Filtros</h4>
@@ -119,6 +178,7 @@ function EditorFiltros({columnas, filtros, onCambioFiltros} : EditorFiltroProps)
                     <span>
                         {/* el conector del primer filtro no se usa para nada, así que no lo muestro */}
                         {indice > 0 && (filtro.conector === "OR" ? "O " : "Y ")}
+                        {filtro.negado && "NO "}
                         {nombreColumna(filtro.columna_id)} - {filtro.tipo_filtro} - [{filtro.valores.join(", ")}]
                     </span>
                     <button type="button" onClick={() => manejarQuitarFiltro(indice)}>
@@ -129,6 +189,12 @@ function EditorFiltros({columnas, filtros, onCambioFiltros} : EditorFiltroProps)
 
             {/* Formulario para añadir un filtro nuevo */}
             <div style={{marginTop:"8px"}}>
+                {/* NOT: le da la vuelta a este filtro (por ejemplo NO Ciudad = Barcelona) */}
+                <label>
+                    <input type="checkbox" checked={negado} onChange={(e) => setNegado(e.target.checked)} />
+                    NO
+                </label>
+
                 <select value={columnaId} onChange={(e) => setColumnaId(e.target.value)}>
                     <option value="">Columna...</option>
                     {columnasDisponibles.map((columna) => (
@@ -138,7 +204,7 @@ function EditorFiltros({columnas, filtros, onCambioFiltros} : EditorFiltroProps)
                     ))}
                 </select>
 
-                <select value={tipoFiltro} onChange={(e) => setTipoFiltro(e.target.value)}>
+                <select value={tipoFiltro} onChange={(e) => manejarCambioTipoFiltro(e.target.value)}>
                     <option value="valor_exacto">Valor exacto</option>
                     <option value="diferente_de">Diferente de</option>
                     <option value="rango">Rango</option>
@@ -149,10 +215,15 @@ function EditorFiltros({columnas, filtros, onCambioFiltros} : EditorFiltroProps)
                     <option value="fecha_antes_de">Fecha antes de</option>
                     <option value="fecha_despues_de">Fecha después de</option>
                     <option value="fecha_entre">Fecha entre</option>
+                    <option value="fecha_dia">Día concreto</option>
+                    <option value="fecha_mes">Mes</option>
+                    <option value="fecha_trimestre">Trimestre</option>
+                    <option value="fecha_ultimos_dias">Últimos X días</option>
                 </select>
 
                 {/* Muestro inputs distintos según el tipo de filtro elegido.
-                    fecha_entre es como el rango pero con dos fechas en vez de dos números */}
+                    fecha_entre es como el rango pero con dos fechas en vez de dos números,
+                    y el trimestre necesita el año y cuál de los 4 trimestres */}
                 {tipoFiltro === "rango" || tipoFiltro === "fecha_entre" ? (
                     <>
                         <input
@@ -168,14 +239,32 @@ function EditorFiltros({columnas, filtros, onCambioFiltros} : EditorFiltroProps)
                             onChange={(e) => setValorMax(e.target.value)}
                         />
                     </>
+                ) : tipoFiltro === "fecha_trimestre" ? (
+                    <>
+                        <input
+                            type="number"
+                            placeholder="Año"
+                            value={valorAño}
+                            onChange={(e) => setValorAño(e.target.value)}
+                        />
+                        <select value={valorTrimestre} onChange={(e) => setValorTrimestre(e.target.value)}>
+                            <option value="1">T1 (enero - marzo)</option>
+                            <option value="2">T2 (abril - junio)</option>
+                            <option value="3">T3 (julio - septiembre)</option>
+                            <option value="4">T4 (octubre - diciembre)</option>
+                        </select>
+                    </>
                 ) : (
                     <input
-                        type={(tipoFiltro === "fecha_antes_de" || tipoFiltro === "fecha_despues_de") ? "date" : undefined}
-                        placeholder={tipoFiltro === "lista_valores" ? "valor 1, valor 2, ..." : "Valor"}
+                        type={tipoInputValor()}
+                        placeholder={placeholderValor()}
                         value={valorTexto}
                         onChange={(e) => setValorTexto(e.target.value)}
                     />
                 )}
+
+                {/* los últimos días se cuentan desde la última fecha del archivo, no desde hoy */}
+                {tipoFiltro === "fecha_ultimos_dias" && <span> (desde la última fecha del archivo)</span>}
 
                 {/* con qué se junta este filtro con los filtros anteriores, en el primero da igual */}
                 <select value={conector} onChange={(e) => setConector(e.target.value)}>

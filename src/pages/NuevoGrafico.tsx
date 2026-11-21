@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
 import api from "../api/client";
@@ -25,7 +24,7 @@ const OPERACIONES_PERMITEN_DISTRIBUCION = ["media", "mediana", "desviacion_estan
 // 7 - Envío datos al backend mediante POST para generar el gráfico
 // 8 - Guardo el resultado que devuelve el backend en resultado
 // 9 - Muestro los selectores de X y Y, operación y tipo de gráfico
-// 10 - Si hay resultado lo pinto con Plotly
+// 10 - Si hay resultado lo pinto con Plotly, con los filtros que se han aplicado debajo del título
 function NuevoGrafico(){
 
     // 1 y 2
@@ -216,6 +215,12 @@ function NuevoGrafico(){
             {resultado && (
                 <div>
                     <h3>{resultado.nombre ?? "resultado"}</h3>
+                    {/* los filtros que se aplicaron, con el mismo texto que sale en el PDF */}
+                    {resultado.filtros_texto && (
+                        <p style={{color:"#666", fontSize:"14px", margin:"4px 0"}}>
+                            Filtros: {resultado.filtros_texto}
+                        </p>
+                    )}
                     <GraficoPlotly especificacion={resultado.especificacion}/>
                 </div>
             )}
